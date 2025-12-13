@@ -252,7 +252,7 @@ fn parse_atom_base(pair: Pair<Rule>) -> AtomBase {
             AtomBase::Paren(Box::new(inner))
         }
 
-        Rule::block => AtomBase::Block(parse_block(pair)),
+        Rule::block => AtomBase::Block(Box::new(parse_block(pair))),
 
         _ => unreachable!("unexpected atom base"),
     }

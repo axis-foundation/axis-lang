@@ -106,7 +106,7 @@ pub enum AtomBase {
     Var(Ident),
     Tuple(Vec<Expr>),     // tuple literal
     Paren(Box<Expr>),     // (expr)
-    Block(Block),         // { ... }
+    Block(Box<Block>),    // { ... }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
