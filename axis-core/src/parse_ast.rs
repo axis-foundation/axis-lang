@@ -229,7 +229,7 @@ fn parse_app_expr(pair: Pair<Rule>) -> Expr {
                 }
             }
             Rule::app_arg => {
-                args.push(parse_expr(part));
+                args.push(parse_app_arg(part));
             }
             _ => unreachable!("unexpected application part"),
         }
@@ -239,6 +239,28 @@ fn parse_app_expr(pair: Pair<Rule>) -> Expr {
         head: Box::new(Expr::Atom(head_atom)),
         args,
     }
+}
+
+fn parse_app_arg(pair: Pair<Rule>) -> Expr {
+    let mut it = pair.into_inner();
+
+    // `app_arg_base` is a silent rule, so we receive its concrete variants here
+    // (literal | ident | tuple_lit | paren_expr).
+    let base = parse_atom_base(it.next().unwrap());
+    let mut projs = Vec::new();
+
+    for proj in it {
+        let idx = proj
+            .into_inner()
+            .next()
+            .unwrap()
+            .as_str()
+            .parse::<usize>()
+            .unwrap();
+        projs.push(idx);
+    }
+
+    Expr::Atom(Atom { base, projs })
 }
 
 fn parse_atom(pair: Pair<Rule>) -> Atom {

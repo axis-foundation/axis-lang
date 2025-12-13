@@ -1,5 +1,5 @@
-use crate::core_ast::*;
 use crate::ast::{Ident, Lit};
+use crate::core_ast::*;
 
 /// Generate a standalone Rust program that evaluates `expr` and prints the result.
 /// This is intentionally "boring": we embed a small runtime + evaluator.
@@ -12,7 +12,8 @@ pub fn emit_rust_program(expr: &CoreExpr) -> String {
 use std::collections::HashMap;
 use std::rc::Rc;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
+#[allow(dead_code)]
 enum Value {
     Int(i64),
     Bool(bool),
@@ -21,12 +22,37 @@ enum Value {
     Closure(Rc<dyn Fn(Value) -> Value>),
 }
 
+impl std::fmt::Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Int(n) => write!(f, "{}", n),
+            Value::Bool(b) => write!(f, "{}", b),
+            Value::Unit => write!(f, "()"),
+            Value::Tuple(xs) => {
+                f.write_str("(")?;
+                for (i, x) in xs.iter().enumerate() {
+                    if i > 0 {
+                        f.write_str(", ")?;
+                    }
+                    write!(f, "{:?}", x)?;
+                }
+                if xs.len() == 1 {
+                    f.write_str(",")?;
+                }
+                f.write_str(")")
+            }
+            Value::Closure(_) => f.write_str("<closure>"),
+        }
+    }
+}
+
 type Env = HashMap<String, Value>;
 
-fn proj(mut v: Value, idx: usize) -> Value {
+#[allow(dead_code)]
+fn proj(v: Value, idx: usize) -> Value {
     match v {
         Value::Tuple(xs) => {
-            let i = idx.checked_sub(1).expect("projection index is 1-based") ;
+            let i = idx.checked_sub(1).expect("projection index is 1-based");
             xs.get(i).cloned().expect("invalid projection index")
         }
         _ => panic!("projection on non-tuple"),
@@ -38,11 +64,16 @@ fn proj(mut v: Value, idx: usize) -> Value {
 fn eval_expr(env: &Env) -> Value {
 "#);
 
-    // Emit the expression as Rust statements ending with a `return <Value>;`
-    let body = emit_expr(expr, 1);
-    out.push_str(&body);
+    out.push_str("    let _env: &Env = env;\n");
 
-    out.push_str(r#"
+    // Emit the expression as a Rust *expression*.
+    // Important: do not generate `return` inside nested blocks, otherwise
+    // evaluation returns from `eval_expr` too early.
+    out.push_str("    ");
+    out.push_str(&emit_expr_inline(expr, "_env"));
+
+    out.push_str(
+        r#"
 }
 
 fn main() {
@@ -50,140 +81,79 @@ fn main() {
     let v = eval_expr(&env);
     println!("{:?}", v);
 }
-"#);
+"#,
+    );
 
     out
 }
 
-/// Emit code that evaluates `expr` and returns a `Value`.
-/// `indent` is indentation level (4 spaces per level).
-fn emit_expr(expr: &CoreExpr, indent: usize) -> String {
+fn emit_expr_inline(expr: &CoreExpr, env: &str) -> String {
     match expr {
         CoreExpr::LetIn { name, value, body, .. } => {
-            // let v0 = <value>;
-            // let mut env1 = env.clone(); env1.insert("x", v0);
-            // { evaluate body with env1 }
             let n = &name.0;
-            let mut s = String::new();
-            s.push_str(&indentln(indent, "{"));
-            s.push_str(&indentln(indent + 1, &format!("let v = {};", emit_expr_value(value, indent + 1))));
-            s.push_str(&indentln(indent + 1, "let mut env2 = env.clone();"));
-            s.push_str(&indentln(indent + 1, &format!(r#"env2.insert("{}".to_string(), v);"#, escape_str(n))));
-            s.push_str(&indentln(indent + 1, "{"));
-            s.push_str(&indentln(indent + 2, "let env = &env2;"));
-            s.push_str(&emit_expr(body, indent + 2));
-            s.push_str(&indentln(indent + 1, "}"));
-            s.push_str(&indentln(indent, "}"));
-            s
+            format!(
+                "{{ let v = {}; let mut env2: Env = {}.clone(); env2.insert(\"{}\".to_string(), v); let _env: &Env = &env2; {} }}",
+                emit_expr_inline(value, env),
+                env,
+                escape_str(n),
+                emit_expr_inline(body, "_env")
+            )
         }
 
-        CoreExpr::If { cond, then_br, else_br } => {
-            let mut s = String::new();
-            s.push_str(&indentln(indent, "{"));
-            s.push_str(&indentln(indent + 1, &format!("let c = {};", emit_expr_value(cond, indent + 1))));
-            s.push_str(&indentln(indent + 1, "match c {"));
-            s.push_str(&indentln(indent + 2, "Value::Bool(true) => {"));
-            s.push_str(&emit_expr(then_br, indent + 3));
-            s.push_str(&indentln(indent + 2, "}"));
-            s.push_str(&indentln(indent + 2, "Value::Bool(false) => {"));
-            s.push_str(&emit_expr(else_br, indent + 3));
-            s.push_str(&indentln(indent + 2, "}"));
-            s.push_str(&indentln(indent + 2, "_ => panic!(\"non-bool condition\"),"));
-            s.push_str(&indentln(indent + 1, "}"));
-            s.push_str(&indentln(indent, "}"));
-            s
-        }
+        CoreExpr::If { cond, then_br, else_br } => format!(
+            "{{ let c = {}; match c {{ Value::Bool(true) => {{ {} }}, Value::Bool(false) => {{ {} }}, _ => panic!(\"non-bool condition\"), }} }}",
+            emit_expr_inline(cond, env),
+            emit_expr_inline(then_br, env),
+            emit_expr_inline(else_br, env)
+        ),
 
         CoreExpr::Lambda { param, body } => {
-            // Return a Value::Closure that captures `env` (clone).
-            // param is a single Value; bind it in a new env and eval body.
             let p = &param.name.0;
-            let mut s = String::new();
-            s.push_str(&indentln(indent, "{"));
-            s.push_str(&indentln(indent + 1, "let captured = env.clone();"));
-            s.push_str(&indentln(
-                indent + 1,
-                &format!(
-                    r#"return Value::Closure(Rc::new(move |arg: Value| {{
-    let mut env2 = captured.clone();
-    env2.insert("{}".to_string(), arg);
-    let env = &env2;
-{}    }}
-)));"#,
-                    escape_str(p),
-                    emit_expr_as_return(body, 1) // emits "return ..." with internal indentation
-                ),
-            ));
-            s.push_str(&indentln(indent, "}"));
-            s
+            format!(
+                "{{ let captured: Env = {}.clone(); Value::Closure(Rc::new(move |arg: Value| {{ let mut env2: Env = captured.clone(); env2.insert(\"{}\".to_string(), arg); let _env: &Env = &env2; {} }})) }}",
+                env,
+                escape_str(p),
+                emit_expr_inline(body, "_env")
+            )
         }
 
         CoreExpr::App { head, args } => {
-            // Evaluate head, then each arg, apply sequentially (curried)
-            let mut s = String::new();
-            s.push_str(&indentln(indent, "{"));
-            s.push_str(&indentln(indent + 1, &format!("let mut f = {};", emit_expr_value(head, indent + 1))));
-            for (i, a) in args.iter().enumerate() {
-                s.push_str(&indentln(indent + 1, &format!("let a{} = {};", i, emit_expr_value(a, indent + 1))));
-                s.push_str(&indentln(indent + 1, &format!("f = match f {{ Value::Closure(c) => (c)(a{}), _ => panic!(\"not a function\") }};", i)));
+            if args.is_empty() {
+                return emit_expr_inline(head, env);
             }
-            s.push_str(&indentln(indent + 1, "return f;"));
-            s.push_str(&indentln(indent, "}"));
+
+            let mut s = String::new();
+            s.push_str("{ let f = ");
+            s.push_str(&emit_expr_inline(head, env));
+            s.push_str("; ");
+
+            for (i, a) in args.iter().enumerate() {
+                s.push_str(&format!("let a{} = {}; ", i, emit_expr_inline(a, env)));
+                s.push_str(&format!(
+                    "let f = match f {{ Value::Closure(c) => (c)(a{}), _ => panic!(\"not a function\") }}; ",
+                    i
+                ));
+            }
+
+            s.push_str("f }");
             s
         }
 
-        CoreExpr::Atom(a) => {
-            let mut s = String::new();
-            s.push_str(&indentln(indent, "{"));
-            s.push_str(&indentln(indent + 1, &format!("return {};", emit_atom_value(a))));
-            s.push_str(&indentln(indent, "}"));
-            s
-        }
+        CoreExpr::Atom(a) => emit_atom_value(a, env),
     }
 }
 
-/// Emit a CoreExpr as a Rust expression of type Value (no statements).
-fn emit_expr_value(expr: &CoreExpr, indent: usize) -> String {
-    match expr {
-        CoreExpr::Atom(a) => emit_atom_value(a),
-        _ => {
-            // For complex expressions, emit a block that evaluates and yields a Value.
-            // We call the statement-emitter and ensure it returns.
-            let mut s = String::new();
-            s.push_str("{\n");
-            s.push_str(&indent_str(indent + 1));
-            s.push_str("let env = env;\n");
-            s.push_str(&emit_expr_as_return(expr, indent + 1));
-            s.push_str(&indent_str(indent));
-            s.push_str("}\n");
-            s
-        }
-    }
-}
-
-/// Emit code that ends with `return <Value>;` for an expression.
-fn emit_expr_as_return(expr: &CoreExpr, indent: usize) -> String {
-    // Reuse emit_expr(), which already uses return paths, but we need consistent indentation.
-    // We wrap it in a function-ish block style.
-    let mut s = String::new();
-    // create a fake evaluation scope:
-    // { ...; return <val>; }
-    // emit_expr already returns with `return ...;` in branches.
-    s.push_str(&emit_expr(expr, indent));
-    // Ensure we don't fall through: if emit_expr didn’t return (it always does), panic.
-    s.push_str(&indentln(indent, "panic!(\"fell through\");"));
-    s
-}
-
-fn emit_atom_value(a: &CoreAtom) -> String {
+fn emit_atom_value(a: &CoreAtom, env: &str) -> String {
     let mut base = match &a.base {
         CoreAtomBase::Lit(l) => emit_lit(l),
-        CoreAtomBase::Var(Ident(name)) => format!(r#"env.get("{}").cloned().expect("unbound var")"#, escape_str(name)),
+        CoreAtomBase::Var(Ident(name)) => {
+            format!(r#"{}.get("{}").cloned().expect("unbound var")"#, env, escape_str(name))
+        }
         CoreAtomBase::Tuple(xs) => {
-            let parts: Vec<String> = xs.iter().map(|e| emit_expr_value(e, 0)).collect();
+            let parts: Vec<String> = xs.iter().map(|e| emit_expr_inline(e, env)).collect();
             format!("Value::Tuple(vec![{}])", parts.join(", "))
         }
-        CoreAtomBase::Paren(e) => emit_expr_value(e, 0),
+        CoreAtomBase::Paren(e) => emit_expr_inline(e, env),
     };
 
     for idx in &a.projs {
@@ -198,14 +168,6 @@ fn emit_lit(l: &Lit) -> String {
         Lit::Bool(b) => format!("Value::Bool({})", b),
         Lit::Unit => "Value::Unit".to_string(),
     }
-}
-
-fn indent_str(level: usize) -> String {
-    "    ".repeat(level)
-}
-
-fn indentln(level: usize, line: &str) -> String {
-    format!("{}{}\n", indent_str(level), line)
 }
 
 fn escape_str(s: &str) -> String {
