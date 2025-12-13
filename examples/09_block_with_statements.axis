@@ -1,0 +1,7 @@
+fn main(x: Int) -> Int {
+  {
+    let y: Int = x;
+    y = 5;
+    y
+  }
+}

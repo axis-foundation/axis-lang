@@ -1,0 +1,7 @@
+fn id(x: Int) -> Int {
+  x
+}
+
+fn main(y: Int) -> Int {
+  id y
+}

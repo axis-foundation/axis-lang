@@ -1,0 +1,4 @@
+fn main(x: Int) -> Int {
+  let y: Int = x in
+  y
+}

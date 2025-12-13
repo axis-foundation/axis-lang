@@ -1,0 +1,6 @@
+[workspace]
+resolver = "3"
+members = [
+    "axis-core",
+    "axis-cli"
+]

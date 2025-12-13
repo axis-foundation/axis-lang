@@ -1,0 +1,5 @@
+fn main(x: Int) -> Int {
+  let x: Int = 10 in
+  let x: Int = 20 in
+  x
+}

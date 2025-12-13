@@ -1,0 +1,92 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{ "//" ~ (!"\n" ~ ANY)* ~ ("\n" | EOI) }
+
+program = { SOI ~ item* ~ EOI }
+item    = _{ fn_def }
+
+fn_def  = { "fn" ~ ident ~ "(" ~ ident ~ ":" ~ type_ ~ ")" ~ "->" ~ type_ ~ block }
+
+reserved = {
+  ("fn" | "let" | "in" | "if" | "else" | "true" | "false" | "Int" | "Bool" | "Unit")
+  ~ !(ASCII_ALPHANUMERIC | "_")
+}
+
+ident   = @{ !reserved ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+int_lit  = @{ "-"? ~ ASCII_DIGIT+ }
+bool_lit = { "true" | "false" }
+unit_lit = { "(" ~ ")" }
+
+literal  = { int_lit | bool_lit | unit_lit }
+
+type_      = { func_type | tuple_type | base_type }
+func_type  = { tuple_type ~ "->" ~ type_ }
+tuple_type = { "(" ~ type_ ~ "," ~ type_ ~ ("," ~ type_)* ~ ")" }
+base_type  = { "Int" | "Bool" | "Unit" }
+
+expr =
+  _{ let_expr
+   | if_expr
+   | lambda_expr
+   | app_expr
+   }
+
+let_expr =
+  { "let" ~ ident ~ ":" ~ type_ ~ "=" ~ expr ~ "in" ~ expr }
+
+if_expr =
+  { "if" ~ expr ~ "{" ~ expr ~ "}" ~ "else" ~ "{" ~ expr ~ "}" }
+
+lambda_expr =
+  { "fn" ~ "(" ~ ident ~ ":" ~ type_ ~ ")" ~ "=>" ~ expr }
+
+app_expr =
+  { atom ~ (call | app_arg)* }
+
+call =
+  { "(" ~ (expr ~ ("," ~ expr)*)? ~ ")" }
+
+app_arg =
+  { app_arg_base ~ proj* }
+
+app_arg_base =
+  _{ literal
+  | ident
+  | tuple_lit
+  | paren_expr
+  }
+
+atom =
+  { atom_base ~ proj* }
+
+proj =
+  { "." ~ index }
+
+index =
+  @{ ASCII_DIGIT+ }
+
+atom_base =
+  _{ literal
+   | ident
+   | tuple_lit
+   | paren_expr
+   | block
+   }
+
+paren_expr =
+  { "(" ~ expr ~ ")" }
+
+tuple_lit =
+  { "(" ~ expr ~ "," ~ expr ~ ("," ~ expr)* ~ ")" }
+
+block =
+  { "{" ~ stmt* ~ expr ~ "}" }
+
+stmt =
+  { let_stmt | rebind_stmt }
+
+let_stmt =
+  { "let" ~ ident ~ ":" ~ type_ ~ "=" ~ expr ~ ";" }
+
+rebind_stmt =
+  { ident ~ "=" ~ expr ~ ";" }

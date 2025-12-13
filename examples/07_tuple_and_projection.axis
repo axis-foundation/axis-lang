@@ -1,0 +1,4 @@
+fn main(x: Int) -> Int {
+  let t: (Int, Int) = (x, 5) in
+  t.1
+}
