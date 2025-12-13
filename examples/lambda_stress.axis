@@ -1,0 +1,162 @@
+// EXPECT:
+// (
+//   10, 10, 20, 30, 10,
+//   42, 7, 7, 99, 5,
+//   3, 3, 100, 1, 8
+// )
+
+fn main(x: Int) -> (
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int
+) {
+
+    // 1. Basic capture
+    let t1: Int = {
+        let x: Int = 10;
+        let f: Int -> Int = fn (y: Int) => { x };
+        f(0)
+    };
+
+    // 2. Capture unaffected by later shadowing
+    let t2: Int = {
+        let x: Int = 10;
+        let f: Int -> Int = fn (y: Int) => { x };
+        let x: Int = 999;
+        f(0)
+    };
+
+    // 3. Nested shadowing before lambda creation
+    let t3: Int = {
+        let x: Int = 10;
+        let x: Int = 20;
+        let f: Int -> Int = fn (y: Int) => { x };
+        f(0)
+    };
+
+    // 4. Lambda inside block shadowing outer
+    let t4: Int = {
+        let x: Int = 10;
+        {
+            let x: Int = 30;
+            let f: Int -> Int = fn (y: Int) => { x };
+            f(0)
+        }
+    };
+
+    // 5. Lambda created before inner block
+    let t5: Int = {
+        let x: Int = 10;
+        let f: Int -> Int = fn (y: Int) => { x };
+        {
+            let x: Int = 99;
+            ()
+        };
+        f(0)
+    };
+
+    // 6. Lambda returning lambda (double capture)
+    let t6: Int = {
+        let x: Int = 42;
+        let make: Int -> (Int -> Int) =
+            fn (y: Int) => {
+                fn (z: Int) => { x }
+            };
+        let f: Int -> Int = make(0);
+        f(0)
+    };
+
+    // 7. Shadow inside inner lambda only
+    let t7: Int = {
+        let x: Int = 7;
+        let f: Int -> Int =
+            fn (y: Int) => {
+                let x: Int = 99;
+                x
+            };
+        f(0)
+    };
+
+    // 8. Inner lambda ignores outer shadow
+    let t8: Int = {
+        let x: Int = 7;
+        let f: Int -> Int =
+            fn (y: Int) => {
+                let z: Int = x;
+                z
+            };
+        let x: Int = 100;
+        f(0)
+    };
+
+    // 9. Deep nesting
+    let t9: Int = {
+        let a: Int = 1;
+        let b: Int = 2;
+        let c: Int = 3;
+        let f: Int -> Int =
+            fn (x: Int) => {
+                let b: Int = 99;
+                let g: Int -> Int =
+                    fn (y: Int) => {
+                        let c: Int = 100;
+                        b
+                    };
+                g(0)
+            };
+        f(0)
+    };
+
+    // 10. Lambda inside sequencing
+    let t10: Int = {
+        let x: Int = 5;
+        let f: Int -> Int = fn (y: Int) => { x };
+        { 1; 2; 3; };
+        f(0)
+    };
+
+    // 11. Multiple lambdas capturing same name
+    let t11: Int = {
+        let x: Int = 3;
+        let f: Int -> Int = fn (a: Int) => { x };
+        let g: Int -> Int = fn (b: Int) => { x };
+        f(0)
+    };
+
+    // 12. Lambda argument shadowing capture name
+    let t12: Int = {
+        let x: Int = 3;
+        let f: Int -> Int = fn (x: Int) => { x };
+        f(3)
+    };
+
+    // 13. Capture survives sequencing + rebinding
+    let t13: Int = {
+        let x: Int = 100;
+        let f: Int -> Int = fn (y: Int) => { x };
+        x = 1;
+        f(0)
+    };
+
+    // 14. Alpha-renaming chain
+    let t14: Int = {
+        let a: Int = 1;
+        let b: Int = a;
+        let c: Int = b;
+        let f: Int -> Int = fn (d: Int) => { c };
+        f(0)
+    };
+
+    // 15. Tuple + lambda capture
+    let t15: Int = {
+        let t: (Int, Int) = (7, 8);
+        let f: Int -> Int = fn (x: Int) => { t.2 };
+        f(0)
+    };
+
+    (
+      t1, t2, t3, t4, t5,
+      t6, t7, t8, t9, t10,
+      t11, t12, t13, t14, t15
+    )
+}

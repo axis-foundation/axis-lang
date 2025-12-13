@@ -56,6 +56,9 @@ pub enum Stmt {
         name: Ident,
         value: Expr,
     },
+    Expr {
+        expr: Expr,
+    },
 }
 
 // -----------------------------

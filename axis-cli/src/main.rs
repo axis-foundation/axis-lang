@@ -23,7 +23,12 @@ fn main() {
     }
 
     match args[1].as_str() {
-        "rust-run" => rust_run(&args[2]),
+        "rust-run" => {
+            if let Err(msg) = rust_run(&args[2]) {
+                eprintln!("{}", msg);
+                std::process::exit(1);
+            }
+        }
         _ => {
             eprintln!("unknown command: {}", args[1]);
             std::process::exit(1);
@@ -31,23 +36,23 @@ fn main() {
     }
 }
 
-fn rust_run(filename: &str) {
+fn rust_run(filename: &str) -> Result<(), String> {
     // ------------------------------------------------------------
     // Read Axis source
     // ------------------------------------------------------------
     let input = fs::read_to_string(filename)
-        .expect("failed to read .axis file");
+        .map_err(|e| format!("failed to read {}: {}", filename, e))?;
 
     // ------------------------------------------------------------
     // Parse → AST
     // ------------------------------------------------------------
     let pairs = AxisCoreParser::parse(Rule::program, &input)
-        .expect("parse failed");
+        .map_err(|e| format!("parse failed: {}", e))?;
 
     let program = parse_program(pairs);
 
     if program.functions.is_empty() {
-        panic!("no functions found");
+        return Err("no functions found".to_string());
     }
 
     // For now: assume first function is entry point
@@ -57,7 +62,7 @@ fn rust_run(filename: &str) {
     // Desugar
     // ------------------------------------------------------------
     let core_expr = desugar_block(&func.body)
-        .expect("desugar failed");
+        .map_err(|e| format!("desugar failed: {:?}", e))?;
 
     // Bind the entry function parameter to a default value so programs that
     // reference it (e.g. `x`) don't panic with "unbound var".
@@ -81,7 +86,7 @@ fn rust_run(filename: &str) {
     tmp_dir.push("axis_rust_run");
 
     fs::create_dir_all(&tmp_dir)
-        .expect("failed to create temp directory");
+        .map_err(|e| format!("failed to create temp directory: {}", e))?;
 
     let mut rs_path = PathBuf::from(&tmp_dir);
     rs_path.push("out.rs");
@@ -90,7 +95,7 @@ fn rust_run(filename: &str) {
     bin_path.push("out_bin");
 
     fs::write(&rs_path, rust_src)
-        .expect("failed to write generated Rust file");
+        .map_err(|e| format!("failed to write generated Rust file: {}", e))?;
 
     // ------------------------------------------------------------
     // Compile with rustc
@@ -101,10 +106,10 @@ fn rust_run(filename: &str) {
         .arg("-o")
         .arg(&bin_path)
         .status()
-        .expect("failed to invoke rustc");
+        .map_err(|e| format!("failed to invoke rustc: {}", e))?;
 
     if !status.success() {
-        panic!("rustc compilation failed");
+        return Err("rustc compilation failed".to_string());
     }
 
     // ------------------------------------------------------------
@@ -112,14 +117,17 @@ fn rust_run(filename: &str) {
     // ------------------------------------------------------------
     let output = Command::new(&bin_path)
         .output()
-        .expect("failed to run generated binary");
+        .map_err(|e| format!("failed to run generated binary: {}", e))?;
 
     if !output.status.success() {
-        panic!("generated program failed");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("generated program failed\n{}", stderr.trim()));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     println!("{}", stdout.trim());
+
+    Ok(())
 }
 
 fn default_value_expr(ty: &Type) -> CoreExpr {

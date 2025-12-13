@@ -89,6 +89,12 @@ fn main() {
 
 fn emit_expr_inline(expr: &CoreExpr, env: &str) -> String {
     match expr {
+        CoreExpr::Seq { first, then } => format!(
+            "{{ let _ = {}; {} }}",
+            emit_expr_inline(first, env),
+            emit_expr_inline(then, env)
+        ),
+
         CoreExpr::LetIn { name, value, body, .. } => {
             let n = &name.0;
             format!(

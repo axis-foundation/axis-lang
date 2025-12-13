@@ -1,0 +1,11 @@
+fn main(x: Int) -> Int {
+    let x: Int = 10;
+
+    let f: Int -> Int = fn (y: Int) => {
+        x
+    };
+
+    let x: Int = 20;
+
+    f(1)
+}

@@ -77,6 +77,9 @@ pub fn eval_block(block: &Block, env: &SEnv) -> Result<SValue, SurfaceEvalError>
                 let v = eval_expr(value, &cur)?;
                 cur.insert(name.0.clone(), v);
             }
+            Stmt::Expr { expr } => {
+                let _ = eval_expr(expr, &cur)?;
+            }
         }
     }
 

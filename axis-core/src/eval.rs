@@ -16,6 +16,11 @@ pub enum EvalError {
 
 pub fn eval(expr: &CoreExpr, env: &Env) -> Result<Value, EvalError> {
     match expr {
+        CoreExpr::Seq { first, then } => {
+            let _ = eval(first, env)?;
+            eval(then, env)
+        }
+
         CoreExpr::LetIn { name, value, body, .. } => {
             let v = eval(value, env)?;
             let mut new_env = env.clone();

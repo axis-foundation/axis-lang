@@ -19,10 +19,11 @@ unit_lit = { "(" ~ ")" }
 
 literal  = { int_lit | bool_lit | unit_lit }
 
-type_      = { func_type | tuple_type | base_type }
+type_      = { func_type | tuple_type | paren_type | base_type }
 func_type  = { func_lhs ~ "->" ~ type_ }
-func_lhs   = { tuple_type | base_type }
+func_lhs   = { tuple_type | paren_type | base_type }
 tuple_type = { "(" ~ type_ ~ "," ~ type_ ~ ("," ~ type_)* ~ ")" }
+paren_type = { "(" ~ type_ ~ ")" }
 base_type  = { "Int" | "Bool" | "Unit" }
 
 expr =
@@ -36,7 +37,7 @@ let_expr =
   { "let" ~ ident ~ ":" ~ type_ ~ "=" ~ expr ~ "in" ~ expr }
 
 if_expr =
-  { "if" ~ expr ~ "{" ~ expr ~ "}" ~ "else" ~ "{" ~ expr ~ "}" }
+  { "if" ~ expr ~ block ~ "else" ~ block }
 
 lambda_expr =
   { "fn" ~ "(" ~ ident ~ ":" ~ type_ ~ ")" ~ "=>" ~ expr }
@@ -81,13 +82,16 @@ tuple_lit =
   { "(" ~ expr ~ "," ~ expr ~ ("," ~ expr)* ~ ")" }
 
 block =
-  { "{" ~ stmt* ~ expr ~ "}" }
+  { "{" ~ stmt* ~ expr? ~ "}" }
 
 stmt =
-  { let_stmt | rebind_stmt }
+  { let_stmt | rebind_stmt | expr_stmt }
 
 let_stmt =
   { "let" ~ ident ~ ":" ~ type_ ~ "=" ~ expr ~ ";" }
 
 rebind_stmt =
   { ident ~ "=" ~ expr ~ ";" }
+
+expr_stmt =
+  { expr ~ ";" }

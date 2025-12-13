@@ -24,20 +24,19 @@ pub fn desugar_block(b: &Block) -> Result<CoreExpr, DesugarError> {
     // However, `rebind` needs the type from a *prior* `let` in source order.
     // So we do a forward pass first to validate and record the type for each rebind.
     #[derive(Clone)]
-    struct StmtWithType<'a> {
-        name: Ident,
-        ty: Type,
-        value: &'a Expr,
+    enum StmtOut<'a> {
+        Bind { name: Ident, ty: Type, value: &'a Expr },
+        Expr { expr: &'a Expr },
     }
 
     let mut types: HashMap<String, Type> = HashMap::new();
-    let mut stmts_typed: Vec<StmtWithType<'_>> = Vec::with_capacity(b.stmts.len());
+    let mut stmts_out: Vec<StmtOut<'_>> = Vec::with_capacity(b.stmts.len());
 
     for stmt in &b.stmts {
         match stmt {
             Stmt::Let { name, ty, value } => {
                 types.insert(name.0.clone(), ty.clone());
-                stmts_typed.push(StmtWithType {
+                stmts_out.push(StmtOut::Bind {
                     name: name.clone(),
                     ty: ty.clone(),
                     value,
@@ -49,25 +48,39 @@ pub fn desugar_block(b: &Block) -> Result<CoreExpr, DesugarError> {
                         name: name.0.clone(),
                     }
                 })?;
-                stmts_typed.push(StmtWithType {
+                stmts_out.push(StmtOut::Bind {
                     name: name.clone(),
                     ty,
                     value,
                 });
+            }
+            Stmt::Expr { expr } => {
+                stmts_out.push(StmtOut::Expr { expr });
             }
         }
     }
 
     // Start from the final expression and wrap statements outward (reverse fold).
     let mut acc = desugar_expr(&b.expr)?;
-    for stmt in stmts_typed.into_iter().rev() {
-        let v = desugar_expr(stmt.value)?;
-        acc = CoreExpr::LetIn {
-            name: stmt.name,
-            ty: stmt.ty,
-            value: Box::new(v),
-            body: Box::new(acc),
-        };
+    for stmt in stmts_out.into_iter().rev() {
+        match stmt {
+            StmtOut::Bind { name, ty, value } => {
+                let v = desugar_expr(value)?;
+                acc = CoreExpr::LetIn {
+                    name,
+                    ty,
+                    value: Box::new(v),
+                    body: Box::new(acc),
+                };
+            }
+            StmtOut::Expr { expr } => {
+                let first = desugar_expr(expr)?;
+                acc = CoreExpr::Seq {
+                    first: Box::new(first),
+                    then: Box::new(acc),
+                };
+            }
+        }
     }
 
     Ok(acc)

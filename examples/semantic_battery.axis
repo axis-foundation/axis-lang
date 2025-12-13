@@ -1,0 +1,143 @@
+// EXPECT: (5, 10, 10, 20, 2, 3, 2, 1, 5, 10, 3, 10, 7, 42, 1)
+
+fn main(x: Int) -> (
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int
+) {
+
+    // 1. Deep shadowing chain
+    let t1: Int = {
+        let x: Int = 1;
+        let x: Int = 2;
+        let x: Int = 3;
+        let x: Int = 4;
+        let x: Int = 5;
+        x
+    };
+
+    // 2. Lambda capture + shadowing
+    let t2: Int = {
+        let x: Int = 10;
+        let f: Int -> Int = fn (y: Int) => { x };
+        let x: Int = 20;
+        f(0)
+    };
+
+    // 3. Lambda returns lambda (double capture)
+    let t3: Int = {
+        let x: Int = 10;
+        let make: Int -> (Int -> Int) =
+            fn (y: Int) => {
+                fn (z: Int) => { x }
+            };
+        let f: Int -> Int = make(0);
+        f(0)
+    };
+
+    // 4. Shadowing inside lambda body
+    let t4: Int = {
+        let x: Int = 10;
+        let f: Int -> Int =
+            fn (y: Int) => {
+                let x: Int = 20;
+                x
+            };
+        f(0)
+    };
+
+    // 5. Tuple capture in closure
+    let t5: Int = {
+        let t: (Int, Int) = (1, 2);
+        let f: Int -> Int = fn (y: Int) => { t.2 };
+        f(0)
+    };
+
+    // 6. Nested tuple projection
+    let t6: Int = {
+        let t: ((Int, Int), Int) = ((1, 2), 3);
+        t.2
+    };
+
+    // 7. Projection chain
+    let t7: Int = {
+        let t: ((Int, Int), (Int, Int)) = ((1, 2), (3, 4));
+        t.1.2
+    };
+
+    // 8. If branch isolation
+    let t8: Int = {
+        if true {
+            1
+        } else {
+            let y: Int = 999;
+            y
+        }
+    };
+
+    // 9. If branch shadowing
+    let t9: Int = {
+        let x: Int = 5;
+        if true {
+            x
+        } else {
+            let x: Int = 99;
+            x
+        }
+    };
+
+    // 10. Block scoping
+    let t10: Int = {
+        let x: Int = 10;
+        {
+            let x: Int = 20;
+            x
+        };
+        x
+    };
+
+    // 11. Block final expression
+    let t11: Int = {
+        {
+            let a: Int = 1;
+            let b: Int = 2;
+            3
+        }
+    };
+
+    // 12. Application argument evaluation
+    let t12: Int = {
+        let f: Int -> Int = fn (y: Int) => { y };
+        f({ let z: Int = 10; z })
+    };
+
+    // 13. Higher-order pass-through
+    let t13: Int = {
+        let id: (Int -> Int) -> (Int -> Int) =
+            fn (f: Int -> Int) => { f };
+        let g: Int -> Int = fn (y: Int) => { 7 };
+        let h: Int -> Int = id(g);
+        h(0)
+    };
+
+    // 14. Lambda in tuple
+    let t14: Int = {
+        let t: (Int -> Int, Int) =
+            (fn (y: Int) => { 42 }, 0);
+        let f: Int -> Int = t.1;
+        f(0)
+    };
+
+    // 15. Alpha-renaming stress
+    let t15: Int = {
+        let a: Int = 1;
+        let b: Int = a;
+        let c: Int = b;
+        let d: Int = c;
+        d
+    };
+
+    (t1, t2, t3, t4, t5,
+     t6, t7, t8, t9, t10,
+     t11, t12, t13, t14, t15)
+}

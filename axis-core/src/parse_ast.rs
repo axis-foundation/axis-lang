@@ -93,6 +93,12 @@ fn parse_type(pair: Pair<Rule>) -> Type {
             parse_type(inner)
         }
 
+        Rule::paren_type => {
+            // Parenthesized type used for grouping, e.g. (Int -> Int)
+            let inner = pair.into_inner().next().unwrap();
+            parse_type(inner)
+        }
+
         Rule::base_type => match pair.as_str() {
             "Int" => Type::Int,
             "Bool" => Type::Bool,
@@ -131,6 +137,7 @@ fn parse_block(pair: Pair<Rule>) -> Block {
                 match stmt_inner.as_rule() {
                     Rule::let_stmt => stmts.push(parse_let_stmt(stmt_inner)),
                     Rule::rebind_stmt => stmts.push(parse_rebind_stmt(stmt_inner)),
+                    Rule::expr_stmt => stmts.push(parse_expr_stmt(stmt_inner)),
                     _ => unreachable!("unexpected stmt kind: {:?}", stmt_inner.as_rule()),
                 }
             }
@@ -142,9 +149,16 @@ fn parse_block(pair: Pair<Rule>) -> Block {
         }
     }
 
+    let expr = final_expr.unwrap_or_else(|| {
+        Expr::Atom(Atom {
+            base: AtomBase::Lit(Lit::Unit),
+            projs: vec![],
+        })
+    });
+
     Block {
         stmts,
-        expr: final_expr.expect("block must end in expression"),
+        expr,
     }
 }
 
@@ -165,12 +179,25 @@ fn parse_rebind_stmt(pair: Pair<Rule>) -> Stmt {
     }
 }
 
+fn parse_expr_stmt(pair: Pair<Rule>) -> Stmt {
+    // `expr` is a silent rule, so expr_stmt directly contains the concrete expr variant.
+    let inner = pair.into_inner().next().unwrap();
+    Stmt::Expr {
+        expr: parse_expr(inner),
+    }
+}
+
 // ============================================================
 // Expressions
 // ============================================================
 
 fn parse_expr(pair: Pair<Rule>) -> Expr {
     match pair.as_rule() {
+        Rule::block => Expr::Atom(Atom {
+            base: AtomBase::Block(Box::new(parse_block(pair))),
+            projs: vec![],
+        }),
+
         Rule::let_expr => {
             let mut it = pair.into_inner();
             Expr::LetIn {

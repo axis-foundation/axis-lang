@@ -2,6 +2,10 @@ use crate::ast::{Ident, Lit, Param, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CoreExpr {
+    Seq {
+        first: Box<CoreExpr>,
+        then: Box<CoreExpr>,
+    },
     LetIn {
         name: Ident,
         ty: Type,
