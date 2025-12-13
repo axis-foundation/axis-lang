@@ -20,7 +20,8 @@ unit_lit = { "(" ~ ")" }
 literal  = { int_lit | bool_lit | unit_lit }
 
 type_      = { func_type | tuple_type | base_type }
-func_type  = { tuple_type ~ "->" ~ type_ }
+func_type  = { func_lhs ~ "->" ~ type_ }
+func_lhs   = { tuple_type | base_type }
 tuple_type = { "(" ~ type_ ~ "," ~ type_ ~ ("," ~ type_)* ~ ")" }
 base_type  = { "Int" | "Bool" | "Unit" }
 

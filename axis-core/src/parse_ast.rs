@@ -12,15 +12,22 @@ pub fn parse_program(pairs: Pairs<Rule>) -> Program {
 
     for pair in pairs {
         match pair.as_rule() {
-            Rule::item => {
-                let inner = pair.into_inner().next().unwrap();
-                match inner.as_rule() {
-                    Rule::fn_def => functions.push(parse_fn_def(inner)),
-                    _ => unreachable!("unexpected item"),
+            // The entrypoint parse uses Rule::program, so pest yields a top-level `program` pair.
+            // Also note: `item` is a silent rule, so `program` directly contains `fn_def` pairs.
+            Rule::program => {
+                for inner in pair.into_inner() {
+                    match inner.as_rule() {
+                        Rule::fn_def => functions.push(parse_fn_def(inner)),
+                        Rule::EOI => {}
+                        _ => unreachable!("unexpected program content: {:?}", inner.as_rule()),
+                    }
                 }
             }
+
+            // Allow callers to pass a stream of fn_def pairs directly (e.g. in tests).
+            Rule::fn_def => functions.push(parse_fn_def(pair)),
             Rule::EOI => {}
-            _ => unreachable!("unexpected top-level rule"),
+            _ => unreachable!("unexpected top-level rule: {:?}", pair.as_rule()),
         }
     }
 
@@ -74,6 +81,18 @@ fn parse_lit(pair: Pair<Rule>) -> Lit {
 
 fn parse_type(pair: Pair<Rule>) -> Type {
     match pair.as_rule() {
+        Rule::type_ => {
+            // `type_` is a non-silent wrapper in the grammar.
+            let inner = pair.into_inner().next().unwrap();
+            parse_type(inner)
+        }
+
+        Rule::func_lhs => {
+            // `func_lhs` is a non-silent wrapper in the grammar.
+            let inner = pair.into_inner().next().unwrap();
+            parse_type(inner)
+        }
+
         Rule::base_type => match pair.as_str() {
             "Int" => Type::Int,
             "Bool" => Type::Bool,
@@ -107,10 +126,19 @@ fn parse_block(pair: Pair<Rule>) -> Block {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::let_stmt => stmts.push(parse_let_stmt(inner)),
-            Rule::rebind_stmt => stmts.push(parse_rebind_stmt(inner)),
-            Rule::expr => final_expr = Some(parse_expr(inner)),
-            _ => unreachable!("unexpected block content"),
+            Rule::stmt => {
+                let stmt_inner = inner.into_inner().next().unwrap();
+                match stmt_inner.as_rule() {
+                    Rule::let_stmt => stmts.push(parse_let_stmt(stmt_inner)),
+                    Rule::rebind_stmt => stmts.push(parse_rebind_stmt(stmt_inner)),
+                    _ => unreachable!("unexpected stmt kind: {:?}", stmt_inner.as_rule()),
+                }
+            }
+            // `expr` is a silent rule in the grammar, so we receive its concrete variants here.
+            Rule::let_expr | Rule::if_expr | Rule::lambda_expr | Rule::app_expr => {
+                final_expr = Some(parse_expr(inner))
+            }
+            _ => unreachable!("unexpected block content: {:?}", inner.as_rule()),
         }
     }
 

@@ -20,23 +20,28 @@ pub fn desugar_program(p: &Program) -> Result<Vec<(Ident, CoreExpr)>, DesugarErr
 }
 
 pub fn desugar_block(b: &Block) -> Result<CoreExpr, DesugarError> {
-    // Track types for rebinding within THIS block.
+    // We build nested `let` bindings by folding statements in reverse order.
+    // However, `rebind` needs the type from a *prior* `let` in source order.
+    // So we do a forward pass first to validate and record the type for each rebind.
+    #[derive(Clone)]
+    struct StmtWithType<'a> {
+        name: Ident,
+        ty: Type,
+        value: &'a Expr,
+    }
+
     let mut types: HashMap<String, Type> = HashMap::new();
+    let mut stmts_typed: Vec<StmtWithType<'_>> = Vec::with_capacity(b.stmts.len());
 
-    // Start from the final expression and wrap statements outward (reverse fold).
-    let mut acc = desugar_expr(&b.expr)?;
-
-    for stmt in b.stmts.iter().rev() {
+    for stmt in &b.stmts {
         match stmt {
             Stmt::Let { name, ty, value } => {
                 types.insert(name.0.clone(), ty.clone());
-                let v = desugar_expr(value)?;
-                acc = CoreExpr::LetIn {
+                stmts_typed.push(StmtWithType {
                     name: name.clone(),
                     ty: ty.clone(),
-                    value: Box::new(v),
-                    body: Box::new(acc),
-                };
+                    value,
+                });
             }
             Stmt::Rebind { name, value } => {
                 let ty = types.get(&name.0).cloned().ok_or_else(|| {
@@ -44,15 +49,25 @@ pub fn desugar_block(b: &Block) -> Result<CoreExpr, DesugarError> {
                         name: name.0.clone(),
                     }
                 })?;
-                let v = desugar_expr(value)?;
-                acc = CoreExpr::LetIn {
+                stmts_typed.push(StmtWithType {
                     name: name.clone(),
                     ty,
-                    value: Box::new(v),
-                    body: Box::new(acc),
-                };
+                    value,
+                });
             }
         }
+    }
+
+    // Start from the final expression and wrap statements outward (reverse fold).
+    let mut acc = desugar_expr(&b.expr)?;
+    for stmt in stmts_typed.into_iter().rev() {
+        let v = desugar_expr(stmt.value)?;
+        acc = CoreExpr::LetIn {
+            name: stmt.name,
+            ty: stmt.ty,
+            value: Box::new(v),
+            body: Box::new(acc),
+        };
     }
 
     Ok(acc)

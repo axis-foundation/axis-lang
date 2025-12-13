@@ -5,3 +5,5 @@ pub mod parse_ast;
 pub mod desugar;
 pub mod value;
 pub mod eval;
+pub mod surface_eval;
+pub mod codegen_rust;
