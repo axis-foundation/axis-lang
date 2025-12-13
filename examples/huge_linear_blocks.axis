@@ -1,0 +1,130 @@
+// EXPECT: 1
+
+fn main(x: Int) -> Int {
+
+    // -------------------------------------------------
+    // Huge linear block stress test
+    //
+    // Purpose:
+    //  - extreme sequencing
+    //  - deep let chains
+    //  - no semantic complexity
+    //  - context-heavy but meaning-light
+    //
+    // Invariant:
+    //  - final result must be 1
+    // -------------------------------------------------
+
+    let v000: Int = 1;
+    let v001: Int = v000;
+    let v002: Int = v001;
+    let v003: Int = v002;
+    let v004: Int = v003;
+    let v005: Int = v004;
+    let v006: Int = v005;
+    let v007: Int = v006;
+    let v008: Int = v007;
+    let v009: Int = v008;
+
+    let v010: Int = v009;
+    let v011: Int = v010;
+    let v012: Int = v011;
+    let v013: Int = v012;
+    let v014: Int = v013;
+    let v015: Int = v014;
+    let v016: Int = v015;
+    let v017: Int = v016;
+    let v018: Int = v017;
+    let v019: Int = v018;
+
+    let v020: Int = v019;
+    let v021: Int = v020;
+    let v022: Int = v021;
+    let v023: Int = v022;
+    let v024: Int = v023;
+    let v025: Int = v024;
+    let v026: Int = v025;
+    let v027: Int = v026;
+    let v028: Int = v027;
+    let v029: Int = v028;
+
+    let v030: Int = v029;
+    let v031: Int = v030;
+    let v032: Int = v031;
+    let v033: Int = v032;
+    let v034: Int = v033;
+    let v035: Int = v034;
+    let v036: Int = v035;
+    let v037: Int = v036;
+    let v038: Int = v037;
+    let v039: Int = v038;
+
+    let v040: Int = v039;
+    let v041: Int = v040;
+    let v042: Int = v041;
+    let v043: Int = v042;
+    let v044: Int = v043;
+    let v045: Int = v044;
+    let v046: Int = v045;
+    let v047: Int = v046;
+    let v048: Int = v047;
+    let v049: Int = v048;
+
+    let v050: Int = v049;
+    let v051: Int = v050;
+    let v052: Int = v051;
+    let v053: Int = v052;
+    let v054: Int = v053;
+    let v055: Int = v054;
+    let v056: Int = v055;
+    let v057: Int = v056;
+    let v058: Int = v057;
+    let v059: Int = v058;
+
+    let v060: Int = v059;
+    let v061: Int = v060;
+    let v062: Int = v061;
+    let v063: Int = v062;
+    let v064: Int = v063;
+    let v065: Int = v064;
+    let v066: Int = v065;
+    let v067: Int = v066;
+    let v068: Int = v067;
+    let v069: Int = v068;
+
+    let v070: Int = v069;
+    let v071: Int = v070;
+    let v072: Int = v071;
+    let v073: Int = v072;
+    let v074: Int = v073;
+    let v075: Int = v074;
+    let v076: Int = v075;
+    let v077: Int = v076;
+    let v078: Int = v077;
+    let v079: Int = v078;
+
+    let v080: Int = v079;
+    let v081: Int = v080;
+    let v082: Int = v081;
+    let v083: Int = v082;
+    let v084: Int = v083;
+    let v085: Int = v084;
+    let v086: Int = v085;
+    let v087: Int = v086;
+    let v088: Int = v087;
+    let v089: Int = v088;
+
+    let v090: Int = v089;
+    let v091: Int = v090;
+    let v092: Int = v091;
+    let v093: Int = v092;
+    let v094: Int = v093;
+    let v095: Int = v094;
+    let v096: Int = v095;
+    let v097: Int = v096;
+    let v098: Int = v097;
+    let v099: Int = v098;
+
+    v099
+}
+// EXPECT: 1

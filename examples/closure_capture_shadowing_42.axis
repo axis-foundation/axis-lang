@@ -1,0 +1,26 @@
+// Demonstrates closure capture, shadowing, and block sequencing in Axis
+
+fn main(x: Int) -> Int {
+    let x: Int = 42;
+    // Outer function captures x
+    let make_fn: (Int) -> (Int) -> Int = fn (y: Int) => {
+        let z: Int = x; // capture x from outer scope
+        // Return a function that uses z (which is x)
+        fn (w: Int) => {
+            let x: Int = w; // shadow x, but does not affect captured z
+            z // return captured x, not shadowed x
+        }
+    };
+    // Use blocks and sequencing in two places
+    let f: (Int) -> Int = {
+        let temp: Int = 100;
+        temp; // explicit sequencing: temp is discarded
+        make_fn(temp)
+    };
+    let result: Int = {
+        let x: Int = 0; // shadow x again
+        x; // explicit sequencing: x is shadowed, but closure returns captured x
+        f(999)
+    };
+    result // should be 42
+}

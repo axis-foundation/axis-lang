@@ -1,0 +1,200 @@
+// EXPECT:
+// (
+//   7, 7, 7, 7, 7,
+//   7, 7, 7, 7, 7,
+//   7, 7, 7, 7, 7,
+//   7, 7, 7, 7, 7
+// )
+
+fn main(x: Int) -> (
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int
+) {
+
+    // The canonical meaning we want, repeatedly:
+    //
+    //   let base = 7;
+    //   (any amount of harmless structure)
+    //   return base;
+    //
+    // Each test varies names and structure only.
+    // If any test differs, something in scoping/sequence/block lowering is wrong.
+
+    // -------------------------------------------------
+    // 1–5: Straight renaming chains
+    // -------------------------------------------------
+
+    let t1: Int = {
+        let a: Int = 7;
+        a
+    };
+
+    let t2: Int = {
+        let b: Int = 7;
+        b
+    };
+
+    let t3: Int = {
+        let cat: Int = 7;
+        cat
+    };
+
+    let t4: Int = {
+        let _x: Int = 7;
+        _x
+    };
+
+    let t5: Int = {
+        let value: Int = 7;
+        value
+    };
+
+    // -------------------------------------------------
+    // 6–10: Let-chains with different names but same value flow
+    // -------------------------------------------------
+
+    let t6: Int = {
+        let a: Int = 7;
+        let b: Int = a;
+        b
+    };
+
+    let t7: Int = {
+        let p: Int = 7;
+        let q: Int = p;
+        let r: Int = q;
+        r
+    };
+
+    let t8: Int = {
+        let one: Int = 7;
+        let two: Int = one;
+        let three: Int = two;
+        let four: Int = three;
+        four
+    };
+
+    let t9: Int = {
+        let x1: Int = 7;
+        let x2: Int = x1;
+        let x3: Int = x2;
+        x3
+    };
+
+    let t10: Int = {
+        let left: Int = 7;
+        let right: Int = left;
+        right
+    };
+
+    // -------------------------------------------------
+    // 11–15: Structure-only changes using blocks + sequencing
+    // -------------------------------------------------
+
+    let t11: Int = {
+        let a: Int = 7;
+        { 1; 2; 3; };
+        a
+    };
+
+    let t12: Int = {
+        let a: Int = 7;
+        {
+            1;
+            2;
+            3;
+        };
+        a
+    };
+
+    let t13: Int = {
+        let a: Int = 7;
+        {
+            { 1; };
+            { 2; };
+            { 3; };
+        };
+        a
+    };
+
+    let t14: Int = {
+        let a: Int = 7;
+        {
+            {
+                {
+                    1;
+                };
+                2;
+            };
+            3;
+        };
+        a
+    };
+
+    let t15: Int = {
+        let a: Int = 7;
+        {
+            let z: Int = 999;
+            z;
+        };
+        a
+    };
+
+    // -------------------------------------------------
+    // 16–20: Shadowing and alpha-equivalence under renaming
+    //         (different names, same final meaning: 7)
+    // -------------------------------------------------
+
+    let t16: Int = {
+        let a: Int = 7;
+        {
+            let a: Int = 100;
+            a;
+        };
+        a
+    };
+
+    let t17: Int = {
+        let outer: Int = 7;
+        {
+            let inner: Int = 100;
+            inner;
+        };
+        outer
+    };
+
+    let t18: Int = {
+        let x: Int = 7;
+        {
+            let x: Int = 100;
+            { x; };
+        };
+        x
+    };
+
+    let t19: Int = {
+        let a: Int = 7;
+        let b: Int = {
+            let a: Int = 100;
+            a
+        };
+        a
+    };
+
+    let t20: Int = {
+        let a: Int = 7;
+        let f: Int -> Int = fn (a: Int) => { a };
+        // Ensure parameter name shadowing doesn't affect outer `a`
+        f(999);
+        a
+    };
+
+    (
+        t1, t2, t3, t4, t5,
+        t6, t7, t8, t9, t10,
+        t11, t12, t13, t14, t15,
+        t16, t17, t18, t19, t20
+    )
+}

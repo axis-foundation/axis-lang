@@ -1,0 +1,191 @@
+// EXPECT:
+// (
+//   7, 7, 9, 9, 1,
+//   42, 42, 100, 5, 3,
+//   8, 8, 10, 10, 11
+// )
+
+fn main(x: Int) -> (
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int,
+    Int, Int, Int, Int, Int
+) {
+    // -------------------------------------------------
+    // Helpers: simple constant-returning functions
+    // -------------------------------------------------
+
+    let const7: Int -> Int =
+        fn (a: Int) => { 7 };
+
+    let const9: Int -> Int =
+        fn (a: Int) => { 9 };
+
+    let id: Int -> Int =
+        fn (a: Int) => { a };
+
+    // -------------------------------------------------
+    // 1–2: Parenthesized return type vs non-parenthesized
+    // -------------------------------------------------
+
+    let f1: Int -> (Int -> Int) =
+        fn (a: Int) => {
+            fn (b: Int) => { 7 }
+        };
+
+    let t1: Int = {
+        let g: Int -> Int = f1(0);
+        g(0)
+    };
+
+    let f2: Int -> (Int -> Int) =
+        fn (a: Int) => {
+            fn (b: Int) => { 7 }
+        };
+
+    let t2: Int = {
+        let g: Int -> Int = f2(0);
+        g(0)
+    };
+
+    // -------------------------------------------------
+    // 3–4: Compare Int -> (Int -> Int) vs (Int -> Int) -> Int
+    // -------------------------------------------------
+
+    let mk9: Int -> (Int -> Int) =
+        fn (a: Int) => {
+            fn (b: Int) => { 9 }
+        };
+
+    let use_fn: (Int -> Int) -> Int =
+        fn (f: Int -> Int) => {
+            f(0)
+        };
+
+    let t3: Int = {
+        let g: Int -> Int = mk9(0);
+        g(0)
+    };
+
+    let t4: Int = {
+        use_fn(const9)
+    };
+
+    // -------------------------------------------------
+    // 5: Verify right-associativity style shape via explicit parentheses
+    //    (we don’t rely on Int -> Int -> Int parsing here; we assert shapes)
+    // -------------------------------------------------
+
+    let mk_id: Int -> (Int -> Int) =
+        fn (a: Int) => {
+            fn (b: Int) => { b }
+        };
+
+    let t5: Int = {
+        let g: Int -> Int = mk_id(0);
+        g(1)
+    };
+
+    // -------------------------------------------------
+    // 6–7: Parenthesized parameter type: (Int -> Int) -> Int
+    // -------------------------------------------------
+
+    let apply_to_zero: (Int -> Int) -> Int =
+        fn (f: Int -> Int) => {
+            f(0)
+        };
+
+    let t6: Int = apply_to_zero(fn (z: Int) => { 42 });
+    let t7: Int = apply_to_zero(fn (z: Int) => { 42 });
+
+    // -------------------------------------------------
+    // 8: Function inside tuple type
+    // -------------------------------------------------
+
+    let tup: (Int -> Int, Int) = (fn (a: Int) => { 100 }, 0);
+
+    let t8: Int = {
+        let f: Int -> Int = tup.1;
+        f(0)
+    };
+
+    // -------------------------------------------------
+    // 9–10: Return a function from a function, store it, then call it
+    // -------------------------------------------------
+
+    let make_const5: Int -> (Int -> Int) =
+        fn (a: Int) => {
+            fn (b: Int) => { 5 }
+        };
+
+    let t9: Int = {
+        let g: Int -> Int = make_const5(0);
+        g(0)
+    };
+
+    // Higher-order: (Int -> (Int -> Int)) -> Int
+    let take_maker: (Int -> (Int -> Int)) -> Int =
+        fn (m: Int -> (Int -> Int)) => {
+            let g: Int -> Int = m(0);
+            g(0)
+        };
+
+    let t10: Int = take_maker(fn (a: Int) => { fn (b: Int) => { 3 } });
+
+    // -------------------------------------------------
+    // 11–12: Parenthesized type in variable annotations
+    // -------------------------------------------------
+
+    let maker8: Int -> (Int -> Int) =
+        fn (a: Int) => { fn (b: Int) => { 8 } };
+
+    let t11: Int = {
+        let g: Int -> Int = maker8(0);
+        g(0)
+    };
+
+    let maker8b: Int -> (Int -> Int) =
+        fn (a: Int) => { fn (b: Int) => { 8 } };
+
+    let t12: Int = {
+        let g: Int -> Int = maker8b(0);
+        g(0)
+    };
+
+    // -------------------------------------------------
+    // 13–14: Functions passed through higher-order identity with typed parentheses
+    // -------------------------------------------------
+
+    let id_fn: (Int -> Int) -> (Int -> Int) =
+        fn (f: Int -> Int) => { f };
+
+    let t13: Int = {
+        let g: Int -> Int = id_fn(fn (a: Int) => { 10 });
+        g(0)
+    };
+
+    let t14: Int = {
+        let g: Int -> Int = id_fn(fn (a: Int) => { 10 });
+        g(0)
+    };
+
+    // -------------------------------------------------
+    // 15: Function type inside tuple inside function return
+    // -------------------------------------------------
+
+    let make_pair: Int -> ((Int -> Int), Int) =
+        fn (a: Int) => {
+            (fn (b: Int) => { 11 }, 0)
+        };
+
+    let t15: Int = {
+        let p: (Int -> Int, Int) = make_pair(0);
+        let f: Int -> Int = p.1;
+        f(0)
+    };
+
+    (
+        t1, t2, t3, t4, t5,
+        t6, t7, t8, t9, t10,
+        t11, t12, t13, t14, t15
+    )
+}
