@@ -1,5 +1,7 @@
-pub mod parse;
 pub mod ast;
-pub mod parse_ast;
 pub mod core_ast;
+pub mod parse;
+pub mod parse_ast;
 pub mod desugar;
+pub mod value;
+pub mod eval;
