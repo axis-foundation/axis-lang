@@ -1,0 +1,42 @@
+// EXPECT:
+// 42
+//
+// Purpose:
+// - Demonstrate closure capture (lexical scoping)
+// - Demonstrate function returning a function
+// - Demonstrate sequencing (expr;) inside blocks in multiple places
+// - Demonstrate that shadowing does not affect already-captured variables
+//
+// Single entrypoint; no side effects; no arithmetic beyond constants.
+
+fn main(_argv: Int) -> Int {
+    // Value to be captured by closures.
+    let captured: Int = 42;
+
+    // A function that captures `captured` from its outer scope,
+    // and returns another function.
+    let make_getter: Int -> (Int -> Int) = fn (_seed: Int) => {
+        // Sequencing place #1: evaluate/discard, then continue.
+        captured;
+
+        // Returned function closes over `captured`.
+        fn (_ignored: Int) => {
+            // Sequencing place #2: an explicit block with discards.
+            { 0; 0; };
+            captured
+        }
+    };
+
+    // Create the returned closure while `captured` is 42.
+    let get_captured: Int -> Int = make_getter(0);
+
+    // Shadow `captured` after the closure is created.
+    // The closure must still return the originally captured value.
+    let result: Int = {
+        let captured: Int = 0;
+        { captured; 0; };
+        get_captured(0)
+    };
+
+    result
+}
